@@ -13,7 +13,7 @@
 #define kOverlayAnimationDuration 0.2f
 #define kFadeMaxAlpha 0.5f
 
-// this is a guess
+// this is a guess: it's used to remove the gesture detection threshold jump when swiping from the edge
 #define kEdgePanThreshold 20.0f
 
 
@@ -34,7 +34,7 @@ typedef enum {
 }
 
 @property (nonatomic, assign) RMDirectionPangestureRecognizerDirection direction;
-@property (nonatomic, assign) CGPoint startPointInView;
+@property (nonatomic, assign) CGPoint globalStartPoint;
 
 @end
 
@@ -45,7 +45,7 @@ int const static kDirectionPanThreshold = 5;
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
     
     [super touchesBegan:touches withEvent:event];
-    self.startPointInView = [self locationInView:nil];
+    self.globalStartPoint = [self locationInView:nil];
 }
 
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event {
@@ -74,7 +74,8 @@ int const static kDirectionPanThreshold = 5;
     }
 }
 
-- (void)reset {
+- (void)reset
+{
     [super reset];
     _drag = NO;
     _moveX = 0;
@@ -107,9 +108,11 @@ static char UIViewControllerOverlayControllerKey;
 
 @interface RMOverlayController ()
 
-@property (nonatomic, strong) UIView *overlayContainerView;
 @property (nonatomic, strong) UIView *fadeView;
 @property (nonatomic, strong) UIScreenEdgePanGestureRecognizer *edgePanGestureRecognizer;
+@property (nonatomic, strong) RMDirectionPanGestureRecognizer *panGestureRecognizer;
+
+@property (nonatomic, readonly) UIView *overlayView;
 
 @end
 
@@ -143,14 +146,9 @@ static char UIViewControllerOverlayControllerKey;
     panGestureRecognizer.direction = RMDirectionPanGestureRecognizerHorizontal;
     [self.fadeView addGestureRecognizer:panGestureRecognizer];
     
-    self.overlayContainerView = [[UIView alloc] initWithFrame:CGRectMake(-kOverlayWidth, 0, kOverlayWidth, 480)];
-    self.overlayContainerView.autoresizingMask = UIViewAutoresizingFlexibleHeight;
-    self.overlayContainerView.backgroundColor = [UIColor redColor];
-    [self.view addSubview:self.overlayContainerView];
-
     panGestureRecognizer = [[RMDirectionPanGestureRecognizer alloc] initWithTarget:self action:@selector(fadePan:)];
     panGestureRecognizer.direction = RMDirectionPanGestureRecognizerHorizontal;
-    [self.overlayContainerView addGestureRecognizer:panGestureRecognizer];
+    self.panGestureRecognizer = panGestureRecognizer;
     
     UIScreenEdgePanGestureRecognizer *edgeGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(edgePan:)];
     edgeGestureRecognizer.edges = UIRectEdgeLeft;
@@ -159,52 +157,28 @@ static char UIViewControllerOverlayControllerKey;
     [self.view addGestureRecognizer:edgeGestureRecognizer];
 }
 
-- (void)viewDidLoad {
+- (void)viewDidLoad
+{
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor redColor];
-    
-    //
-    
-    UIViewController *contentViewController = self.contentViewController;
-    
-    if(contentViewController)
-    {
-        [self addChildViewController:contentViewController];
-        contentViewController.view.frame = self.view.bounds;
-        contentViewController.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        
-        [self.view addSubview:contentViewController.view];
-        [contentViewController didMoveToParentViewController:self];
-    }
-    
-    
-    UIViewController *overlayViewController = self.overlayViewController;
-    if(overlayViewController)
-    {
-        [self addChildViewController:overlayViewController];
-        overlayViewController.view.frame = self.overlayContainerView.bounds;
-        overlayViewController.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        
-        [self.overlayContainerView addSubview:overlayViewController.view];
-        [overlayViewController didMoveToParentViewController:self];
-    }
-    
-    [self.view bringSubviewToFront:self.overlayContainerView];
+
+    if(self.contentViewController) [self addContentViewController:self.contentViewController];
+    if(self.overlayViewController) [self addOverlayViewController:self.overlayViewController];
 }
 
-#pragma mark -
+#pragma mark - gesture handling
 
 - (void)fadeTap:(UIGestureRecognizer *)tapGestureRecognizer
 {
-    [self hideOverlayViewControllerAnimated:YES];
+    [self hideOverlayViewControllerAnimated];
 }
+
 - (void)fadePan:(RMDirectionPanGestureRecognizer *)panGestureRecognizer
 {
     switch (panGestureRecognizer.state) {
         case UIGestureRecognizerStateBegan:
         case UIGestureRecognizerStateChanged:
         {
-            CGPoint startPoint = panGestureRecognizer.startPointInView;
+            CGPoint startPoint = panGestureRecognizer.globalStartPoint;
             CGPoint currentPoint = [panGestureRecognizer locationInView:nil];
             
             CGFloat offsetX = startPoint.x - currentPoint.x;
@@ -216,15 +190,15 @@ static char UIViewControllerOverlayControllerKey;
         case UIGestureRecognizerStateFailed:
         {
             BOOL shouldHideByVelocity = [panGestureRecognizer velocityInView:panGestureRecognizer.view].x < -500;
-            BOOL shouldHideByPosition = self.overlayContainerView.center.x < 0.0f;
+            BOOL shouldHideByPosition = self.overlayView.center.x < 0.0f;
             
             if(shouldHideByPosition || shouldHideByVelocity)
             {
-                [self hideOverlayViewControllerAnimated:YES];
+                [self finishHidingAnimated];
             }
             else
             {
-                [self animateShowing];
+                [self finishShowingAnimated];
             }
         }
             break;
@@ -250,15 +224,15 @@ static char UIViewControllerOverlayControllerKey;
         case UIGestureRecognizerStateFailed:
         {
             BOOL shouldShowByVelocity = [panGestureRecognizer velocityInView:panGestureRecognizer.view].x > 500;
-            BOOL shouldShowByPosition = self.overlayContainerView.center.x > 0.0f;
+            BOOL shouldShowByPosition = self.overlayView.center.x > 0.0f;
             
             if(shouldShowByVelocity || shouldShowByPosition)
             {
-                [self finishShowingAnimated:YES];
+                [self finishShowingAnimated];
             }
             else
             {
-                [self hideOverlayViewControllerAnimated:YES];
+                [self finishHidingAnimated];
             }
         }
         default:
@@ -266,35 +240,20 @@ static char UIViewControllerOverlayControllerKey;
     }
 }
 
-#pragma mark -
+#pragma mark - animation handling
 
-- (void)showOverlayViewControllerAnimated:(BOOL)animated
+- (void)showOverlayViewControllerAnimated
 {
+    if(!_overlayHidden) return;
+    
     [self startShowing];
-    [self animateShowing];
+    [self finishShowingAnimated];
 }
 
-- (void)finishShowingAnimated:(BOOL)animated
+- (void)hideOverlayViewControllerAnimated
 {
-    [UIView animateWithDuration:kOverlayAnimationDuration animations:^{
-        [self updateShowingWithPercent:1.0f];
-    }];
-    
-    _overlayHidden = NO;
-}
-
-- (void)hideOverlayViewControllerAnimated:(BOOL)animated
-{
-
-    [UIView animateWithDuration:kOverlayAnimationDuration animations:^{
-        [self updateShowingWithPercent:0.0f];
-    } completion:^(BOOL finished) {
-
-        _overlayHidden = YES;
-        [self.fadeView removeFromSuperview];
-        [self setNeedsStatusBarAppearanceUpdate];
-    }];
-    
+    if(_overlayHidden) return;
+    [self finishHidingAnimated];
 }
 
 - (void)startShowing
@@ -303,22 +262,47 @@ static char UIViewControllerOverlayControllerKey;
     
     self.fadeView.frame = self.view.bounds;
     self.fadeView.alpha = 0.0f;
-    [self.view insertSubview:self.fadeView belowSubview:self.overlayContainerView];
+    [self.view insertSubview:self.fadeView belowSubview:self.overlayView];
     
     [self setNeedsStatusBarAppearanceUpdate];
 }
 
-- (void)animateShowing
+- (void)finishShowingAnimated
 {
+    _overlayHidden = NO;
+
     [UIView animateWithDuration:kOverlayAnimationDuration animations:^{
         [self updateShowingWithPercent:1.0f];
+    } completion:^(BOOL finished) {
+        
+        if([_delegate respondsToSelector:@selector(overlayControllerDidShowOverlayViewController:animated:)])
+        {
+            [_delegate overlayControllerDidShowOverlayViewController:self animated:YES];
+        }
+    }];
+}
+
+- (void)finishHidingAnimated
+{
+    [UIView animateWithDuration:kOverlayAnimationDuration animations:^{
+        [self updateShowingWithPercent:0.0f];
+    } completion:^(BOOL finished) {
+        
+        _overlayHidden = YES;
+        
+        [self.fadeView removeFromSuperview];
+        [self setNeedsStatusBarAppearanceUpdate];
+        if([_delegate respondsToSelector:@selector(overlayControllerDidHideOverlayViewController:animated:)])
+        {
+            [_delegate overlayControllerDidHideOverlayViewController:self animated:YES];
+        }
     }];
 }
 
 - (void)updateShowingWithPercent:(CGFloat)percent
 {
     percent = MIN(percent, 1.0f);
-    self.overlayContainerView.frame = CGRectMake(-kOverlayWidth * (1.0f-percent), 0, kOverlayWidth, self.view.bounds.size.height);
+    self.overlayView.frame = CGRectMake(-kOverlayWidth * (1.0f-percent), 0, kOverlayWidth, self.view.bounds.size.height);
     self.fadeView.alpha = kFadeMaxAlpha * percent;
 }
 
@@ -335,6 +319,8 @@ static char UIViewControllerOverlayControllerKey;
 }
 - (BOOL)prefersStatusBarHidden
 {
+    // TODO: more logic?
+    
     //if(!_overlayHidden) return YES;
     
     if(self.contentViewController)
@@ -358,6 +344,7 @@ static char UIViewControllerOverlayControllerKey;
     if(_overlayViewController)
     {
         objc_setAssociatedObject(_overlayViewController, &UIViewControllerOverlayControllerKey, self, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        if(self.isViewLoaded) [self addOverlayViewController:_overlayViewController];
     }
 }
 
@@ -366,10 +353,7 @@ static char UIViewControllerOverlayControllerKey;
     if(_contentViewController)
     {
         objc_setAssociatedObject(_contentViewController, &UIViewControllerOverlayControllerKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        
-        [_contentViewController willMoveToParentViewController:nil];
-        [_contentViewController.view removeFromSuperview];
-        [_contentViewController removeFromParentViewController];
+        [self removeContentViewController:_contentViewController];
     }
     
     _contentViewController = contentViewController;
@@ -377,16 +361,52 @@ static char UIViewControllerOverlayControllerKey;
     if(_contentViewController)
     {
         objc_setAssociatedObject(_contentViewController, &UIViewControllerOverlayControllerKey, self, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        
-        if(self.isViewLoaded)
-        {
-            [self addChildViewController:_contentViewController];
-            _contentViewController.view.frame = self.view.frame;
-            _contentViewController.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-            [self.view addSubview:_contentViewController.view];
-            [_contentViewController didMoveToParentViewController:self];
-        }
+        if(self.isViewLoaded) [self addContentViewController:_contentViewController];
     }
+}
+
+#pragma mark - helpers
+
+- (void)removeContentViewController:(UIViewController *)contentViewController
+{
+    [contentViewController willMoveToParentViewController:nil];
+    [contentViewController.view removeFromSuperview];
+    [contentViewController removeFromParentViewController];
+}
+
+- (void)addContentViewController:(UIViewController *)contentViewController
+{
+    [self addChildViewController:contentViewController];
+    contentViewController.view.frame = self.view.frame;
+    contentViewController.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.view addSubview:contentViewController.view];
+    [contentViewController didMoveToParentViewController:self];
+}
+
+- (void)removeOverlayViewController:(UIViewController *)overlayViewController
+{
+    [overlayViewController willMoveToParentViewController:nil];
+    [overlayViewController.view removeFromSuperview];
+    [overlayViewController.view removeGestureRecognizer:_panGestureRecognizer];
+}
+
+- (void)addOverlayViewController:(UIViewController *)overlayViewController
+{
+    [self addChildViewController:overlayViewController];
+    overlayViewController.view.frame = CGRectMake(-kOverlayWidth, 0, kOverlayWidth, self.view.bounds.size.height);
+    overlayViewController.view.autoresizingMask = UIViewAutoresizingFlexibleHeight;
+    
+    [self.view addSubview:overlayViewController.view];
+    [overlayViewController didMoveToParentViewController:self];
+    
+    [self.overlayViewController.view addGestureRecognizer:self.panGestureRecognizer];
+}
+
+#pragma mark -
+
+- (UIView *)overlayView
+{
+    return self.overlayViewController.view;
 }
 
 @end

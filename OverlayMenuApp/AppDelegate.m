@@ -20,7 +20,7 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     
     UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"Main" bundle:nil];
-    UIViewController *menuViewController = [storyboard instantiateViewControllerWithIdentifier:@"Content"];
+    UIViewController *menuViewController = [storyboard instantiateViewControllerWithIdentifier:@"Menu"];
     UIViewController *contentViewController = [storyboard instantiateViewControllerWithIdentifier:@"Content"];
     
     //UINavigationController *nvc = [[UINavigationController alloc] initWithRootViewController:contentViewController];

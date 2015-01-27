@@ -24,8 +24,8 @@
 @protocol RMOverlayControllerDelegate <NSObject>
 
 @optional
-- (void)overlayControllerWillShowOverlayViewController:(RMOverlayController *)overlayController animated:(BOOL)animated;
-- (void)overlayControllerWillHideOverlayViewController:(RMOverlayController *)overlayController animated:(BOOL)animated;
+- (void)overlayControllerDidShowOverlayViewController:(RMOverlayController *)overlayController animated:(BOOL)animated;
+- (void)overlayControllerDidHideOverlayViewController:(RMOverlayController *)overlayController animated:(BOOL)animated;
 
 @end
 
@@ -43,7 +43,7 @@
 - (instancetype)initWithOverlayViewController:(UIViewController *)overlayViewController
                         contentViewController:(UIViewController *)contentViewController;
 
-- (void)showOverlayViewControllerAnimated:(BOOL)animated;
-- (void)hideOverlayViewControllerAnimated:(BOOL)animated;
+- (void)showOverlayViewControllerAnimated;
+- (void)hideOverlayViewControllerAnimated;
 
 @end

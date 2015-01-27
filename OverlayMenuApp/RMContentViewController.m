@@ -20,7 +20,7 @@
 
 - (IBAction)showOverlay:(id)sender
 {
-    [self.overlayController showOverlayViewControllerAnimated:YES];
+    [self.overlayController showOverlayViewControllerAnimated];
 }
 
 - (IBAction)toggleStatusBarStyle:(id)sender
