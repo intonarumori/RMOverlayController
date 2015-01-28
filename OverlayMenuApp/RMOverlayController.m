@@ -11,7 +11,9 @@
 
 #define kOverlayWidth 240.0f
 #define kOverlayAnimationDuration 0.2f
+#define kOverlaySpringAnimationDuration 0.4f
 #define kFadeMaxAlpha 0.5f
+#define kPanVelocityThreshold 700.0f
 
 // this is a guess: it's used to remove the gesture detection threshold jump when swiping from the edge
 #define kEdgePanThreshold 20.0f
@@ -189,7 +191,7 @@ static char UIViewControllerOverlayControllerKey;
         case UIGestureRecognizerStateEnded:
         case UIGestureRecognizerStateFailed:
         {
-            BOOL shouldHideByVelocity = [panGestureRecognizer velocityInView:panGestureRecognizer.view].x < -500;
+            BOOL shouldHideByVelocity = [panGestureRecognizer velocityInView:panGestureRecognizer.view].x < -kPanVelocityThreshold;
             BOOL shouldHideByPosition = self.overlayView.center.x < 0.0f;
             
             if(shouldHideByPosition || shouldHideByVelocity)
@@ -223,7 +225,7 @@ static char UIViewControllerOverlayControllerKey;
         case UIGestureRecognizerStateEnded:
         case UIGestureRecognizerStateFailed:
         {
-            BOOL shouldShowByVelocity = [panGestureRecognizer velocityInView:panGestureRecognizer.view].x > 500;
+            BOOL shouldShowByVelocity = [panGestureRecognizer velocityInView:panGestureRecognizer.view].x > kPanVelocityThreshold;
             BOOL shouldShowByPosition = self.overlayView.center.x > 0.0f;
             
             if(shouldShowByVelocity || shouldShowByPosition)
@@ -270,25 +272,43 @@ static char UIViewControllerOverlayControllerKey;
 - (void)finishShowingAnimated
 {
     _overlayHidden = NO;
+    
+    [UIView animateWithDuration:kOverlaySpringAnimationDuration
+                          delay:0.0
+         usingSpringWithDamping:0.85
+          initialSpringVelocity:0.0
+                        options:UIViewAnimationOptionCurveEaseInOut
+                     animations:^{
+                         [self updateShowingWithPercent:1.0f];
+                        }
+                     completion:^(BOOL finished) {
 
-    [UIView animateWithDuration:kOverlayAnimationDuration animations:^{
+                         if([_delegate respondsToSelector:@selector(overlayControllerDidShowOverlayViewController:animated:)])
+                         {
+                             [_delegate overlayControllerDidShowOverlayViewController:self animated:YES];
+                         }
+
+                     }];
+
+    /*
+    [UIView animateWithDuration:kOverlayAnimationDuration delay:0.0f options:UIViewAnimationOptionCurveEaseInOut animations:^{
         [self updateShowingWithPercent:1.0f];
+
     } completion:^(BOOL finished) {
-        
         if([_delegate respondsToSelector:@selector(overlayControllerDidShowOverlayViewController:animated:)])
         {
             [_delegate overlayControllerDidShowOverlayViewController:self animated:YES];
         }
-    }];
+    }];*/
 }
 
 - (void)finishHidingAnimated
 {
+    _overlayHidden = YES;
+
     [UIView animateWithDuration:kOverlayAnimationDuration animations:^{
         [self updateShowingWithPercent:0.0f];
     } completion:^(BOOL finished) {
-        
-        _overlayHidden = YES;
         
         [self.fadeView removeFromSuperview];
         [self setNeedsStatusBarAppearanceUpdate];
