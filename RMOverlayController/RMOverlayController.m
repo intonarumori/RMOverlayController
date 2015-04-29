@@ -7,9 +7,10 @@
 //
 
 #import "RMOverlayController.h"
+
 #import <objc/runtime.h>
 
-#define kOverlayWidth 240.0f
+
 #define kOverlayAnimationDuration 0.2f
 #define kOverlaySpringAnimationDuration 0.4f
 #define kFadeMaxAlpha 0.5f
@@ -19,15 +20,13 @@
 #define kEdgePanThreshold 20.0f
 
 
-#pragma mark -
-
 #import <Foundation/Foundation.h>
 #import <UIKit/UIGestureRecognizerSubclass.h>
 
-typedef enum {
+typedef NS_ENUM(NSUInteger, RMDirectionPangestureRecognizerDirection) {
     RMDirectionPangestureRecognizerVertical,
     RMDirectionPanGestureRecognizerHorizontal
-} RMDirectionPangestureRecognizerDirection;
+};
 
 @interface RMDirectionPanGestureRecognizer : UIPanGestureRecognizer {
     BOOL _drag;
@@ -39,6 +38,12 @@ typedef enum {
 @property (nonatomic, assign) CGPoint globalStartPoint;
 
 @end
+
+
+/**-----------------------------------------------------------------------------
+ * @name Direction Pan Gesture Recognizer
+ * -----------------------------------------------------------------------------
+ */
 
 int const static kDirectionPanThreshold = 5;
 
@@ -62,14 +67,14 @@ int const static kDirectionPanThreshold = 5;
         if (abs(_moveX) > kDirectionPanThreshold) {
             if (_direction == RMDirectionPangestureRecognizerVertical) {
                 self.state = UIGestureRecognizerStateFailed;
-            }else {
+            } else {
                 _drag = YES;
             }
         }
         else if (abs(_moveY) > kDirectionPanThreshold) {
             if (_direction == RMDirectionPanGestureRecognizerHorizontal) {
                 self.state = UIGestureRecognizerStateFailed;
-            }else {
+            } else {
                 _drag = YES;
             }
         }
@@ -86,58 +91,114 @@ int const static kDirectionPanThreshold = 5;
 
 @end
 
-
 #pragma mark -
 
 
-static char UIViewControllerOverlayControllerKey;
+@interface RMOverlayController () <UIGestureRecognizerDelegate>
 
-#pragma mark -
-
-@implementation UIViewController (RMOverlayControllerAdditions)
-
-- (RMOverlayController *)overlayController
-{
-    RMOverlayController *overlayController = objc_getAssociatedObject(self, &UIViewControllerOverlayControllerKey);
-    if(overlayController == nil && self.navigationController) overlayController = self.navigationController.overlayController;
-    if(overlayController == nil && self.tabBarController) overlayController = self.tabBarController.overlayController;
-    return overlayController;
-}
-
-@end
-
-#pragma mark -
-
-@interface RMOverlayController ()
-
+// menu parts
 @property (nonatomic, strong) UIView *fadeView;
 @property (nonatomic, strong) UIScreenEdgePanGestureRecognizer *edgePanGestureRecognizer;
 @property (nonatomic, strong) RMDirectionPanGestureRecognizer *panGestureRecognizer;
 
+@property (nonatomic, assign) BOOL cumulativeOverlayEnabled;
+
+// menu
 @property (nonatomic, readonly) UIView *overlayView;
+
+- (void)updateOverlayMenu;
 
 @end
 
+#pragma mark -
+
+static char UIViewControllerOverlayControllerKey;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wincomplete-implementation"
+@implementation UIViewController (RMOverlayControllerAdditions)
+
+#pragma clang diagnostic pop
+
+- (RMOverlayController *)overlayController
+{
+    RMOverlayController *overlayController = objc_getAssociatedObject(self, &UIViewControllerOverlayControllerKey);
+    if (overlayController == nil && self.navigationController) overlayController = self.navigationController.overlayController;
+    if (overlayController == nil && self.tabBarController) overlayController = self.tabBarController.overlayController;
+    return overlayController;
+}
+
+- (void)setNeedsOverlayMenuUpdate
+{
+    RMOverlayController *overlayController = self.overlayController;
+    
+    if(self.overlayController == nil) return;
+    
+    [overlayController updateOverlayMenu];
+}
+
+- (BOOL)rm_prefersOverlayMenuDisabled
+{
+    if([super respondsToSelector:@selector(prefersOverlayMenuDisabled)])
+    {
+        BOOL prefers = (BOOL)[super performSelector:@selector(prefersOverlayMenuDisabled)];
+        return prefers;
+    }
+    return NO;
+}
+
+@end
+
+#pragma mark -
+
 @implementation RMOverlayController
 
-- (instancetype)initWithOverlayViewController:(UIViewController *)overlayViewController
-                        contentViewController:(UIViewController *)contentViewController
+@synthesize overlayViewController = _overlayViewController;
+@synthesize contentViewController = _contentViewController;
+
+
+- (instancetype)init
 {
     self = [super init];
-    if(self)
-    {
-        _overlayHidden = YES;
-        self.overlayViewController = overlayViewController;
-        self.contentViewController = contentViewController;
+    if (self) {
+        [self setup];
     }
     return self;
 }
 
+- (instancetype)initWithOverlayViewController:(UIViewController *)overlayViewController contentViewController:(UIViewController *)contentViewController
+{
+    self = [super init];
+    if(self)
+    {
+        [self setup];
+        self.contentViewController = contentViewController;
+        self.overlayViewController = overlayViewController;
+    }
+    return self;
+}
+
+- (instancetype)initWithCoder:(NSCoder *)aDecoder
+{
+    self = [super initWithCoder:aDecoder];
+    if(self)
+    {
+        [self setup];
+    }
+    return self;
+}
+
+- (void)setup
+{
+    _overlayWidth = 200.0f;
+    _overlayEnabled = YES;
+}
+
+#pragma mark - Lifecycle
+
 - (void)loadView
 {
-    UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
-    view.backgroundColor = [UIColor whiteColor];
-    self.view = view;
+    [super loadView];
     
     self.fadeView = [[UIView alloc] initWithFrame:self.view.bounds];
     self.fadeView.backgroundColor = [UIColor blackColor];
@@ -154,20 +215,124 @@ static char UIViewControllerOverlayControllerKey;
     
     UIScreenEdgePanGestureRecognizer *edgeGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(edgePan:)];
     edgeGestureRecognizer.edges = UIRectEdgeLeft;
+    edgeGestureRecognizer.delegate = self;
     self.edgePanGestureRecognizer = edgeGestureRecognizer;
-
+    
     [self.view addGestureRecognizer:edgeGestureRecognizer];
+    
+    [self updateCumulativeOverlayEnabled];
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldBeRequiredToFailByGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
+{
+    return YES;
 }
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-
-    if(self.contentViewController) [self addContentViewController:self.contentViewController];
-    if(self.overlayViewController) [self addOverlayViewController:self.overlayViewController];
+    
+    self.overlayHidden = YES;
+    
+    // add controllers
+    if (self.contentViewController) [self addContentViewController:self.contentViewController];
+    if (self.overlayViewController) [self addOverlayViewController:self.overlayViewController];
 }
 
-#pragma mark - gesture handling
+#pragma mark - Accessors
+
+- (void)setOverlayViewController:(UIViewController *)overlayViewController
+{
+    if (_overlayViewController) {
+        objc_setAssociatedObject(_overlayViewController, &UIViewControllerOverlayControllerKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    
+    _overlayViewController = overlayViewController;
+    
+    if (_overlayViewController) {
+        objc_setAssociatedObject(_overlayViewController, &UIViewControllerOverlayControllerKey, self, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        if (self.isViewLoaded) [self addOverlayViewController:_overlayViewController];
+    }
+}
+
+- (void)setContentViewController:(UIViewController *)contentViewController
+{
+    if (_contentViewController) {
+        objc_setAssociatedObject(_contentViewController, &UIViewControllerOverlayControllerKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [self removeContentViewController:_contentViewController];
+    }
+    
+    _contentViewController = contentViewController;
+    
+    if (_contentViewController) {
+        objc_setAssociatedObject(_contentViewController, &UIViewControllerOverlayControllerKey, self, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        if (self.isViewLoaded)
+        {
+            [self addContentViewController:_contentViewController];
+            [self updateOverlayMenu];
+        }
+        
+        
+    }
+    if (_overlayViewController) {
+        [self.view bringSubviewToFront:self.overlayViewController.view];
+    }
+}
+
+#pragma mark -
+
+- (void)updateOverlayMenu
+{
+    [self updateCumulativeOverlayEnabled];
+}
+
+
+- (void)updateCumulativeOverlayEnabled
+{
+    BOOL prefers = [self prefersOverlayMenuDisabledByContentViewController];
+    BOOL enabled = _overlayEnabled;
+    
+    self.cumulativeOverlayEnabled = !prefers && enabled;
+    
+    [self updateEdgePanGesture];
+}
+
+- (void)updateEdgePanGesture
+{
+    BOOL enabled = self.cumulativeOverlayEnabled && self.overlayHidden;
+    self.edgePanGestureRecognizer.enabled = enabled;
+    //NSLog(@"overlay enabled %d", self.cumulativeOverlayEnabled);
+}
+
+- (BOOL)prefersOverlayMenuDisabledByContentViewController
+{
+    BOOL prefersOverlayMenuDisabled = NO;
+    if(_contentViewController)
+    {
+        prefersOverlayMenuDisabled = [_contentViewController rm_prefersOverlayMenuDisabled];
+    }
+    return prefersOverlayMenuDisabled;
+    
+}
+
+#pragma mark - width
+
+- (void)setOverlayWidth:(CGFloat)overlayWidth
+{
+    _overlayWidth = overlayWidth;
+    
+    if(self.isViewLoaded)
+    {
+        // hopefully works
+        if(self.overlayHidden)
+            [self finishHidingAnimated];
+        else
+            [self finishShowingAnimated];
+    }
+}
+
+
+#pragma mark - Gesture handling
 
 - (void)fadeTap:(UIGestureRecognizer *)tapGestureRecognizer
 {
@@ -184,7 +349,7 @@ static char UIViewControllerOverlayControllerKey;
             CGPoint currentPoint = [panGestureRecognizer locationInView:nil];
             
             CGFloat offsetX = startPoint.x - currentPoint.x;
-            [self updateShowingWithPercent: (1 - offsetX / kOverlayWidth)];
+            [self updateShowingWithPercent: (1 - offsetX / self.overlayWidth)];
         }
             break;
         case UIGestureRecognizerStateCancelled:
@@ -194,12 +359,9 @@ static char UIViewControllerOverlayControllerKey;
             BOOL shouldHideByVelocity = [panGestureRecognizer velocityInView:panGestureRecognizer.view].x < -kPanVelocityThreshold;
             BOOL shouldHideByPosition = self.overlayView.center.x < 0.0f;
             
-            if(shouldHideByPosition || shouldHideByVelocity)
-            {
+            if (shouldHideByPosition || shouldHideByVelocity) {
                 [self finishHidingAnimated];
-            }
-            else
-            {
+            } else {
                 [self finishShowingAnimated];
             }
         }
@@ -217,7 +379,7 @@ static char UIViewControllerOverlayControllerKey;
         case UIGestureRecognizerStateChanged:
         {
             CGFloat offsetX = [panGestureRecognizer locationInView:panGestureRecognizer.view].x;
-            CGFloat percent = (offsetX - kEdgePanThreshold) / kOverlayWidth;
+            CGFloat percent = (offsetX - kEdgePanThreshold) / self.overlayWidth;
             [self updateShowingWithPercent:percent];
         }
             break;
@@ -228,12 +390,9 @@ static char UIViewControllerOverlayControllerKey;
             BOOL shouldShowByVelocity = [panGestureRecognizer velocityInView:panGestureRecognizer.view].x > kPanVelocityThreshold;
             BOOL shouldShowByPosition = self.overlayView.center.x > 0.0f;
             
-            if(shouldShowByVelocity || shouldShowByPosition)
-            {
+            if (shouldShowByVelocity || shouldShowByPosition) {
                 [self finishShowingAnimated];
-            }
-            else
-            {
+            } else {
                 [self finishHidingAnimated];
             }
         }
@@ -242,11 +401,20 @@ static char UIViewControllerOverlayControllerKey;
     }
 }
 
-#pragma mark - animation handling
+#pragma mark -
+
+- (void)setOverlayEnabled:(BOOL)overlayEnabled
+{
+    _overlayEnabled = overlayEnabled;
+    [self updateOverlayMenu];
+}
+
+#pragma mark - Animation handling
 
 - (void)showOverlayViewControllerAnimated
 {
-    if(!_overlayHidden) return;
+    if (!_overlayHidden) return;
+    if (![self overlayEnabled]) return;
     
     [self startShowing];
     [self finishShowingAnimated];
@@ -254,13 +422,15 @@ static char UIViewControllerOverlayControllerKey;
 
 - (void)hideOverlayViewControllerAnimated
 {
-    if(_overlayHidden) return;
+    if (_overlayHidden) return;
+    if (![self overlayEnabled]) return;
+    
     [self finishHidingAnimated];
 }
 
 - (void)startShowing
 {
-    _overlayHidden = NO;
+    self.overlayView.hidden = NO;
     
     self.fadeView.frame = self.view.bounds;
     self.fadeView.alpha = 0.0f;
@@ -271,7 +441,8 @@ static char UIViewControllerOverlayControllerKey;
 
 - (void)finishShowingAnimated
 {
-    _overlayHidden = NO;
+    self.overlayHidden = NO;
+    self.overlayView.hidden = NO;
     
     [UIView animateWithDuration:kOverlaySpringAnimationDuration
                           delay:0.0
@@ -280,59 +451,55 @@ static char UIViewControllerOverlayControllerKey;
                         options:UIViewAnimationOptionCurveEaseInOut
                      animations:^{
                          [self updateShowingWithPercent:1.0f];
-                        }
+                     }
                      completion:^(BOOL finished) {
-
-                         if([_delegate respondsToSelector:@selector(overlayControllerDidShowOverlayViewController:animated:)])
-                         {
+                         
+                         if ([_delegate respondsToSelector:@selector(overlayControllerDidShowOverlayViewController:animated:)]) {
                              [_delegate overlayControllerDidShowOverlayViewController:self animated:YES];
                          }
-
+                         
                      }];
-
-    /*
-    [UIView animateWithDuration:kOverlayAnimationDuration delay:0.0f options:UIViewAnimationOptionCurveEaseInOut animations:^{
-        [self updateShowingWithPercent:1.0f];
-
-    } completion:^(BOOL finished) {
-        if([_delegate respondsToSelector:@selector(overlayControllerDidShowOverlayViewController:animated:)])
-        {
-            [_delegate overlayControllerDidShowOverlayViewController:self animated:YES];
-        }
-    }];*/
 }
 
 - (void)finishHidingAnimated
 {
-    _overlayHidden = YES;
-
+    self.overlayHidden = YES;
+    
     [UIView animateWithDuration:kOverlayAnimationDuration animations:^{
         [self updateShowingWithPercent:0.0f];
     } completion:^(BOOL finished) {
         
         [self.fadeView removeFromSuperview];
         [self setNeedsStatusBarAppearanceUpdate];
-        if([_delegate respondsToSelector:@selector(overlayControllerDidHideOverlayViewController:animated:)])
-        {
+        if ([_delegate respondsToSelector:@selector(overlayControllerDidHideOverlayViewController:animated:)]) {
             [_delegate overlayControllerDidHideOverlayViewController:self animated:YES];
         }
+        
+        self.overlayView.hidden = YES;
+        
     }];
 }
 
 - (void)updateShowingWithPercent:(CGFloat)percent
 {
     percent = MIN(percent, 1.0f);
-    self.overlayView.frame = CGRectMake(-kOverlayWidth * (1.0f-percent), 0, kOverlayWidth, self.view.bounds.size.height);
+    self.overlayView.frame = CGRectMake(-self.overlayWidth * (1.0f-percent), 0, self.overlayWidth, self.view.bounds.size.height);
     self.fadeView.alpha = kFadeMaxAlpha * percent;
 }
 
+#pragma mark -
+
+- (void)setOverlayHidden:(BOOL)overlayHidden
+{
+    _overlayHidden = overlayHidden;
+    [self updateEdgePanGesture];
+}
 
 #pragma mark - Status bar handling
 
 - (UIStatusBarStyle)preferredStatusBarStyle
 {
-    if(self.contentViewController)
-    {
+    if (self.contentViewController) {
         return [self.contentViewController preferredStatusBarStyle];
     }
     return UIStatusBarStyleLightContent;
@@ -341,51 +508,15 @@ static char UIViewControllerOverlayControllerKey;
 {
     // TODO: more logic?
     
-    //if(!_overlayHidden) return YES;
+    //if (!_overlayHidden) return YES;
     
-    if(self.contentViewController)
-    {
+    if (self.contentViewController) {
         return [self.contentViewController prefersStatusBarHidden];
     }
     return NO;
 }
 
-#pragma mark - setters
-
-- (void)setOverlayViewController:(UIViewController *)overlayViewController
-{
-    if(_overlayViewController)
-    {
-        objc_setAssociatedObject(_overlayViewController, &UIViewControllerOverlayControllerKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
-    
-    _overlayViewController = overlayViewController;
-    
-    if(_overlayViewController)
-    {
-        objc_setAssociatedObject(_overlayViewController, &UIViewControllerOverlayControllerKey, self, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        if(self.isViewLoaded) [self addOverlayViewController:_overlayViewController];
-    }
-}
-
-- (void)setContentViewController:(UIViewController *)contentViewController
-{
-    if(_contentViewController)
-    {
-        objc_setAssociatedObject(_contentViewController, &UIViewControllerOverlayControllerKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        [self removeContentViewController:_contentViewController];
-    }
-    
-    _contentViewController = contentViewController;
-    
-    if(_contentViewController)
-    {
-        objc_setAssociatedObject(_contentViewController, &UIViewControllerOverlayControllerKey, self, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        if(self.isViewLoaded) [self addContentViewController:_contentViewController];
-    }
-}
-
-#pragma mark - helpers
+#pragma mark - Helpers
 
 - (void)removeContentViewController:(UIViewController *)contentViewController
 {
@@ -398,6 +529,10 @@ static char UIViewControllerOverlayControllerKey;
 {
     [self addChildViewController:contentViewController];
     contentViewController.view.frame = self.view.frame;
+    if([contentViewController.view respondsToSelector:@selector(setPreservesSuperviewLayoutMargins:)])
+    {
+        [contentViewController.view setPreservesSuperviewLayoutMargins:YES];
+    }
     contentViewController.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:contentViewController.view];
     [contentViewController didMoveToParentViewController:self];
@@ -413,7 +548,12 @@ static char UIViewControllerOverlayControllerKey;
 - (void)addOverlayViewController:(UIViewController *)overlayViewController
 {
     [self addChildViewController:overlayViewController];
-    overlayViewController.view.frame = CGRectMake(-kOverlayWidth, 0, kOverlayWidth, self.view.bounds.size.height);
+    overlayViewController.view.frame = CGRectMake(-self.overlayWidth, 0, self.overlayWidth, self.view.bounds.size.height);
+    if([overlayViewController.view respondsToSelector:@selector(setPreservesSuperviewLayoutMargins:)])
+    {
+        [overlayViewController.view setPreservesSuperviewLayoutMargins:YES];
+    }
+    
     overlayViewController.view.autoresizingMask = UIViewAutoresizingFlexibleHeight;
     
     [self.view addSubview:overlayViewController.view];
@@ -430,3 +570,4 @@ static char UIViewControllerOverlayControllerKey;
 }
 
 @end
+

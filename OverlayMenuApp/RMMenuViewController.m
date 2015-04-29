@@ -9,12 +9,7 @@
 #import "RMMenuViewController.h"
 #import "RMOverlayController.h"
 
-@interface RMMenuViewController ()
-
-@end
-
 @implementation RMMenuViewController
-
 
 - (void)viewDidLoad
 {
@@ -60,7 +55,7 @@
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"Cell" forIndexPath:indexPath];
-    cell.textLabel.text = [NSString stringWithFormat:@"Cell %d", indexPath.row + 1];
+    cell.textLabel.text = [NSString stringWithFormat:@"Cell %ld", (long)(indexPath.row + 1)];
     return cell;
 }
 

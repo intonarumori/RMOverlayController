@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A50F578C1AF18021005A875A /* RMOverlayController.m in Sources */ = {isa = PBXBuildFile; fileRef = A50F578B1AF18021005A875A /* RMOverlayController.m */; };
 		A5F1784F1A7800A000478D54 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = A5F1784E1A7800A000478D54 /* main.m */; };
 		A5F178521A7800A000478D54 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A5F178511A7800A000478D54 /* AppDelegate.m */; };
 		A5F178581A7800A000478D54 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A5F178561A7800A000478D54 /* Main.storyboard */; };
 		A5F1785A1A7800A000478D54 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A5F178591A7800A000478D54 /* Images.xcassets */; };
 		A5F1785D1A7800A000478D54 /* LaunchScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = A5F1785B1A7800A000478D54 /* LaunchScreen.xib */; };
 		A5F178691A7800A000478D54 /* OverlayMenuAppTests.m in Sources */ = {isa = PBXBuildFile; fileRef = A5F178681A7800A000478D54 /* OverlayMenuAppTests.m */; };
-		A5F178741A7800BB00478D54 /* RMOverlayController.m in Sources */ = {isa = PBXBuildFile; fileRef = A5F178731A7800BB00478D54 /* RMOverlayController.m */; };
 		A5F178771A7800CA00478D54 /* RMMenuViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A5F178761A7800CA00478D54 /* RMMenuViewController.m */; };
 		A5F1787A1A78147A00478D54 /* RMContentViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A5F178791A78147A00478D54 /* RMContentViewController.m */; };
 /* End PBXBuildFile section */
@@ -29,6 +29,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A50F578A1AF18021005A875A /* RMOverlayController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RMOverlayController.h; sourceTree = "<group>"; };
+		A50F578B1AF18021005A875A /* RMOverlayController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RMOverlayController.m; sourceTree = "<group>"; };
 		A5F178491A7800A000478D54 /* OverlayMenuApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OverlayMenuApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5F1784D1A7800A000478D54 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A5F1784E1A7800A000478D54 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
@@ -40,8 +42,6 @@
 		A5F178621A7800A000478D54 /* OverlayMenuAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OverlayMenuAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5F178671A7800A000478D54 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A5F178681A7800A000478D54 /* OverlayMenuAppTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OverlayMenuAppTests.m; sourceTree = "<group>"; };
-		A5F178721A7800BB00478D54 /* RMOverlayController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RMOverlayController.h; sourceTree = "<group>"; };
-		A5F178731A7800BB00478D54 /* RMOverlayController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RMOverlayController.m; sourceTree = "<group>"; };
 		A5F178751A7800CA00478D54 /* RMMenuViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RMMenuViewController.h; sourceTree = "<group>"; };
 		A5F178761A7800CA00478D54 /* RMMenuViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RMMenuViewController.m; sourceTree = "<group>"; };
 		A5F178781A78147A00478D54 /* RMContentViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RMContentViewController.h; sourceTree = "<group>"; };
@@ -66,9 +66,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A50F57891AF18021005A875A /* RMOverlayController */ = {
+			isa = PBXGroup;
+			children = (
+				A50F578A1AF18021005A875A /* RMOverlayController.h */,
+				A50F578B1AF18021005A875A /* RMOverlayController.m */,
+			);
+			path = RMOverlayController;
+			sourceTree = "<group>";
+		};
 		A5F178401A7800A000478D54 = {
 			isa = PBXGroup;
 			children = (
+				A50F57891AF18021005A875A /* RMOverlayController */,
 				A5F1784B1A7800A000478D54 /* OverlayMenuApp */,
 				A5F178651A7800A000478D54 /* OverlayMenuAppTests */,
 				A5F1784A1A7800A000478D54 /* Products */,
@@ -93,8 +103,6 @@
 				A5F178591A7800A000478D54 /* Images.xcassets */,
 				A5F1785B1A7800A000478D54 /* LaunchScreen.xib */,
 				A5F1784C1A7800A000478D54 /* Supporting Files */,
-				A5F178721A7800BB00478D54 /* RMOverlayController.h */,
-				A5F178731A7800BB00478D54 /* RMOverlayController.m */,
 				A5F178751A7800CA00478D54 /* RMMenuViewController.h */,
 				A5F178761A7800CA00478D54 /* RMMenuViewController.m */,
 				A5F178781A78147A00478D54 /* RMContentViewController.h */,
@@ -230,8 +238,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A5F178741A7800BB00478D54 /* RMOverlayController.m in Sources */,
 				A5F178771A7800CA00478D54 /* RMMenuViewController.m in Sources */,
+				A50F578C1AF18021005A875A /* RMOverlayController.m in Sources */,
 				A5F1787A1A78147A00478D54 /* RMContentViewController.m in Sources */,
 				A5F178521A7800A000478D54 /* AppDelegate.m in Sources */,
 				A5F1784F1A7800A000478D54 /* main.m in Sources */,
@@ -425,6 +433,7 @@
 				A5F1786E1A7800A000478D54 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		A5F1786F1A7800A000478D54 /* Build configuration list for PBXNativeTarget "OverlayMenuAppTests" */ = {
 			isa = XCConfigurationList;
@@ -433,6 +442,7 @@
 				A5F178711A7800A000478D54 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

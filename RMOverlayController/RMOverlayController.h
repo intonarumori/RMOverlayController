@@ -11,11 +11,11 @@
 
 @class RMOverlayController;
 
-#pragma mark -
-
 @interface UIViewController (RMOverlayControllerAdditions)
 
 - (RMOverlayController *)overlayController;
+- (void)setNeedsOverlayMenuUpdate;
+- (BOOL)prefersOverlayMenuDisabled;
 
 @end
 
@@ -36,7 +36,10 @@
 @property (nonatomic, strong) UIViewController *overlayViewController;
 @property (nonatomic, strong) UIViewController *contentViewController;
 
+@property (nonatomic, assign) CGFloat overlayWidth;
+
 @property (nonatomic, getter=isOverlayHidden) BOOL overlayHidden;
+@property (nonatomic, assign) BOOL overlayEnabled;
 
 @property (nonatomic, weak) id<RMOverlayControllerDelegate> delegate;
 
@@ -45,5 +48,12 @@
 
 - (void)showOverlayViewControllerAnimated;
 - (void)hideOverlayViewControllerAnimated;
+- (void)setup NS_REQUIRES_SUPER;
 
 @end
+
+// UIGestureRecognizerDelegate
+
+
+
+
